@@ -1,0 +1,100 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "686c4ff0-a256-44a9-8c81-271b6cf15a78",
+                "name": "Nombre",
+                "value": "={{ $json['Cual es tu nombre?'] }}",
+                "type": "string"
+              },
+              {
+                "id": "26a27e67-a85d-479f-851b-d44f24d515e7",
+                "name": "Ciudad",
+                "value": "={{ $json['Cual es tu ciudad?'] }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -48,
+          96
+        ],
+        "id": "a7a8dccc-b22c-401f-8757-5033ad26d5f4",
+        "name": "Edit Fields"
+      },
+      {
+        "parameters": {
+          "formTitle": "Flujo De Datos Estaticos",
+          "formDescription": "Uso del nodo Set para definir\nvariables como nombre y ciudad.",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Cual es tu nombre?",
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Cual es tu ciudad?",
+                "requiredField": true
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.formTrigger",
+        "typeVersion": 2.5,
+        "position": [
+          -240,
+          96
+        ],
+        "id": "0b7151d2-c2ab-444d-8b74-6e685a526f8a",
+        "name": "On form submission",
+        "webhookId": "2ebd58ca-cfa4-4b62-8f46-d732d40528ff"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          160,
+          96
+        ],
+        "id": "9d15e31d-fed9-4eec-abb6-603571b91483",
+        "name": "No Operation, do nothing"
+      }
+    ],
+    "connections": {
+      "Edit Fields": {
+        "main": [
+          [
+            {
+              "node": "No Operation, do nothing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "On form submission": {
+        "main": [
+          [
+            {
+              "node": "Edit Fields",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "instanceId": "65d204920d267a825ddab3d83e2225c95929dcadea6d6787773854ccbae2872d"
+    }
+  }

@@ -1,0 +1,102 @@
+{
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          -16
+        ],
+        "id": "f2ba9228-fff5-4e1e-9c1e-3fed08131728",
+        "name": "When clicking ‘Execute workflow’"
+      },
+      {
+        "parameters": {
+          "url": "https://api.chucknorris.io/jokes/random",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          224,
+          -16
+        ],
+        "id": "c1e8cf5b-d56c-4be9-a68b-d99fa6b4ee23",
+        "name": "HTTP Request"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "642949cd-f110-4007-8937-a101cdb9cf38",
+                "name": "value",
+                "value": "={{ $json.value.toUpperCase() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          448,
+          -16
+        ],
+        "id": "2a2c9c3a-025a-405b-baa5-d99a9e11cfe6",
+        "name": "Edit Fields"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          672,
+          -16
+        ],
+        "id": "16f3bec0-45d3-4db7-991d-1d6f3279826f",
+        "name": "No Operation, do nothing"
+      }
+    ],
+    "connections": {
+      "When clicking ‘Execute workflow’": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Request": {
+        "main": [
+          [
+            {
+              "node": "Edit Fields",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Fields": {
+        "main": [
+          [
+            {
+              "node": "No Operation, do nothing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "instanceId": "65d204920d267a825ddab3d83e2225c95929dcadea6d6787773854ccbae2872d"
+    }
+  }

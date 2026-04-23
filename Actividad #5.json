@@ -1,0 +1,231 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+          "formTitle": "Actividad #5",
+          "formDescription": "Consumir una API (clima, usuarios) y\nguardar el resultado en Google\nSheets.",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Cual es tu nombre?",
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Cual es la ciudad que deseas consultar?",
+                "requiredField": true
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.formTrigger",
+        "typeVersion": 2.5,
+        "position": [
+          0,
+          -64
+        ],
+        "id": "b867aa1e-c142-44e3-bc7d-a3cbcf67c7d2",
+        "name": "On form submission",
+        "webhookId": "2ffd126e-8157-482c-9b03-fd5d3a7e4434"
+      },
+      {
+        "parameters": {
+          "url": "https://geocoding-api.open-meteo.com/v1/search",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "name",
+                "value": "={{ $json['Cual es la ciudad que deseas consultar?'] }}"
+              },
+              {
+                "name": "count",
+                "value": "1"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          224,
+          -64
+        ],
+        "id": "c1d53833-9050-4be9-90ab-b8315156081d",
+        "name": "Consulta Ciudad"
+      },
+      {
+        "parameters": {
+          "url": "https://api.open-meteo.com/v1/forecast",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "latitude",
+                "value": "={{ $json.results[0].latitude }}"
+              },
+              {
+                "name": "longitude",
+                "value": "={{ $json.results[0].longitude }}"
+              },
+              {
+                "name": "current_weather",
+                "value": "true"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          448,
+          -64
+        ],
+        "id": "004ac95a-d069-4809-9bd3-c4d425db6126",
+        "name": "Consulta Clima"
+      },
+      {
+        "parameters": {
+          "operation": "appendOrUpdate",
+          "documentId": {
+            "__rl": true,
+            "value": "1Gu2SA_xIfpq1FFMZWpYjcxajkm0FHlWx4IWMFlnTKbQ",
+            "mode": "list",
+            "cachedResultName": "Actividad Clima",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Gu2SA_xIfpq1FFMZWpYjcxajkm0FHlWx4IWMFlnTKbQ/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "Hoja 1",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Gu2SA_xIfpq1FFMZWpYjcxajkm0FHlWx4IWMFlnTKbQ/edit#gid=0"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "Fecha": "={{$now.setZone(\"America/Bogota\").toFormat(\"yyyy-LL-dd HH:mm:ss\")}}",
+              "Clima": "={{ ({ 0: 'Despejado', 1: 'Principalmente despejado', 2: 'Parcialmente nublado', 3: 'Nublado', 45: 'Niebla', 48: 'Niebla con escarcha', 51: 'Llovizna', 61: 'Lluvia ligera', 63: 'Lluvia moderada', 80: 'Chubascos' })[$json.current_weather.weathercode] || 'Condición mixta' }}",
+              "Ciudad": "={{ $('Consulta Ciudad').item.json.results[0].name }}",
+              "Nombre": "={{ $('On form submission').item.json['Cual es tu nombre?'] }}",
+              "Temperatura": "={{ $json.current_weather.temperature }}{{ $json.current_weather_units.temperature }}"
+            },
+            "matchingColumns": [
+              "Fecha"
+            ],
+            "schema": [
+              {
+                "id": "Fecha",
+                "displayName": "Fecha",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "Nombre",
+                "displayName": "Nombre",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "Ciudad",
+                "displayName": "Ciudad",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "Temperatura",
+                "displayName": "Temperatura",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "Clima",
+                "displayName": "Clima",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {
+            "locationDefine": {
+              "values": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          672,
+          -64
+        ],
+        "id": "5b959ff9-4978-45ca-a8ad-732544901619",
+        "name": "Append or update row in sheet",
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "MQOD1OLfGjY6NHbO",
+            "name": "Google Sheets OAuth2 API"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "On form submission": {
+        "main": [
+          [
+            {
+              "node": "Consulta Ciudad",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Consulta Ciudad": {
+        "main": [
+          [
+            {
+              "node": "Consulta Clima",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Consulta Clima": {
+        "main": [
+          [
+            {
+              "node": "Append or update row in sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true,
+      "instanceId": "65d204920d267a825ddab3d83e2225c95929dcadea6d6787773854ccbae2872d"
+    }
+  }

@@ -1,0 +1,85 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+          "url": "https://api.chucknorris.io/jokes/random",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          992,
+          -432
+        ],
+        "id": "da8235a7-d5dc-4145-bf4f-ad09824d57d3",
+        "name": "HTTP Request"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          1440,
+          -432
+        ],
+        "id": "3745e94f-fe36-4b1a-9aff-3101cbf00e26",
+        "name": "No Operation, do nothing"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "d4fb5cc9-0f55-459a-a2f2-0a0fda9b2bb9",
+                "name": "value",
+                "value": "={{ $json.value }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1216,
+          -432
+        ],
+        "id": "6d3217c1-d80b-465d-8f5c-efd2e3c0813d",
+        "name": "Edit Fields"
+      }
+    ],
+    "connections": {
+      "HTTP Request": {
+        "main": [
+          [
+            {
+              "node": "Edit Fields",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "No Operation, do nothing": {
+        "main": [
+          []
+        ]
+      },
+      "Edit Fields": {
+        "main": [
+          [
+            {
+              "node": "No Operation, do nothing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "instanceId": "65d204920d267a825ddab3d83e2225c95929dcadea6d6787773854ccbae2872d"
+    }
+  }
