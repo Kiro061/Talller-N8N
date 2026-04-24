@@ -1,0 +1,136 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=4.71&longitude=-74.07&current_weather=true",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {}
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -496,
+          -144
+        ],
+        "id": "5b3f1c0a-395a-4110-8d8d-72d82ccca21d",
+        "name": "HTTP Request"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          -272,
+          -48
+        ],
+        "id": "d1feb43d-04e1-478e-aed8-96b2d40e5218",
+        "name": "Merge"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          -720,
+          -48
+        ],
+        "id": "9f45a053-16f5-45a7-b27e-310ddb21b5e8",
+        "name": "When clicking ‘Execute workflow’"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          176,
+          -48
+        ],
+        "id": "67b282b6-d879-40d5-8dae-830b346fad2b",
+        "name": "No Operation, do nothing"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "b983437c-1c9e-4d6a-9193-f6bb32e82e30",
+                "name": "Temperatura",
+                "value": "={{ $json.current_weather.temperature }}{{ $json.current_weather_units.temperature }}",
+                "type": "string"
+              },
+              {
+                "id": "c5da6c29-c214-4102-838b-ad74c588bd07",
+                "name": "Chiste",
+                "value": "={{ $json.value }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -48,
+          -48
+        ],
+        "id": "7d0b3ec5-30ee-4a78-8726-5237599b9c8c",
+        "name": "Edit Fields"
+      }
+    ],
+    "connections": {
+      "HTTP Request": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "Edit Fields",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "When clicking ‘Execute workflow’": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Fields": {
+        "main": [
+          [
+            {
+              "node": "No Operation, do nothing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "instanceId": "65d204920d267a825ddab3d83e2225c95929dcadea6d6787773854ccbae2872d"
+    }
+  }
