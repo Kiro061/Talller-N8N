@@ -1,0 +1,190 @@
+{
+  "name": "Decisiones automatizadas - Temperatura completo",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      },
+      "id": "trigger-cron",
+      "name": "Cada hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 160]
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "latitude",         "value": "4.71"  },
+            { "name": "longitude",        "value": "-74.07" },
+            { "name": "current_weather",  "value": "true"  },
+            { "name": "hourly",           "value": "relative_humidity_2m,precipitation_probability" },
+            { "name": "forecast_days",    "value": "1"     }
+          ]
+        },
+        "options": { "timeout": 8000 }
+      },
+      "id": "fetch-clima",
+      "name": "Obtener clima (Open-Meteo)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 160],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cw   = $json.current_weather;\nconst temp = cw.temperature;\nconst hora = cw.time;\nconst viento      = cw.windspeed;\nconst weathercode = cw.weathercode;\n\nconst humedad    = $json.hourly?.relative_humidity_2m?.[0] ?? null;\nconst prob_lluvia = $json.hourly?.precipitation_probability?.[0] ?? null;\n\nconst CODIGOS_LLUVIA = [51,53,55,61,63,65,71,73,75,80,81,82,95,96,99];\nconst esLluvia       = CODIGOS_LLUVIA.includes(weathercode);\nconst esVientoFuerte = viento > 40;\n\nconst descripciones = {\n  0: 'cielo despejado', 1: 'mayormente despejado', 2: 'parcialmente nublado',\n  3: 'nublado', 45: 'niebla', 51: 'llovizna ligera',\n  61: 'lluvia leve', 63: 'lluvia moderada', 65: 'lluvia intensa',\n  80: 'chubascos', 95: 'tormenta'\n};\nconst descripcion = descripciones[weathercode] || `codigo ${weathercode}`;\n\nreturn [{\n  json: {\n    temperatura: temp,\n    viento,\n    humedad,\n    prob_lluvia,\n    weathercode,\n    descripcion,\n    esLluvia,\n    esVientoFuerte,\n    hora,\n    ciudad: 'Bogota'\n  }\n}];"
+      },
+      "id": "enriquecer",
+      "name": "Enriquecer datos del clima",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 160]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{
+                  "id": "regla-frio",
+                  "leftValue":  "={{ $json.temperatura }}",
+                  "rightValue": 18,
+                  "operator": { "type": "number", "operation": "lt" }
+                }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "frio"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [
+                  {
+                    "id": "regla-normal-min",
+                    "leftValue":  "={{ $json.temperatura }}",
+                    "rightValue": 18,
+                    "operator": { "type": "number", "operation": "gte" }
+                  },
+                  {
+                    "id": "regla-normal-max",
+                    "leftValue":  "={{ $json.temperatura }}",
+                    "rightValue": 35,
+                    "operator": { "type": "number", "operation": "lte" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "normal"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{
+                  "id": "regla-calor",
+                  "leftValue":  "={{ $json.temperatura }}",
+                  "rightValue": 35,
+                  "operator": { "type": "number", "operation": "gt" }
+                }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "calor"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-temperatura",
+      "name": "Clasificar temperatura",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [900, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nconst acciones = ['calefaccion_on', 'cerrar_ventilacion'];\nif (d.esVientoFuerte) acciones.push('alerta_viento');\nif (d.esLluvia)       acciones.push('cerrar_ventanas');\n\nreturn [{\n  json: {\n    ...d,\n    estado:    'FRIO',\n    prioridad: d.temperatura < 10 ? 'alta' : 'media',\n    acciones,\n    resumen:   `Frio detectado en ${d.ciudad}: ${d.temperatura}°C, ${d.descripcion}. Humedad: ${d.humedad}%. Viento: ${d.viento} km/h.`,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "rama-frio",
+      "name": "Protocolo frio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 60]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nreturn [{\n  json: {\n    ...d,\n    estado:    'NORMAL',\n    prioridad: 'baja',\n    acciones:  ['ninguna'],\n    resumen:   `Temperatura agradable en ${d.ciudad}: ${d.temperatura}°C, ${d.descripcion}. Todo en orden.`,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "rama-normal",
+      "name": "Condiciones normales",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nconst acciones = ['ventilacion_maxima', 'bajar_persianas', 'alerta_operadores'];\nif (d.esLluvia)       acciones.push('activar_deshumidificador');\nif (d.esVientoFuerte) acciones.push('asegurar_estructuras');\n\nreturn [{\n  json: {\n    ...d,\n    estado:    'CALOR',\n    prioridad: d.temperatura > 40 ? 'critica' : 'alta',\n    acciones,\n    resumen:   `Calor extremo en ${d.ciudad}: ${d.temperatura}°C, ${d.descripcion}. Humedad: ${d.humedad}%. Viento: ${d.viento} km/h.`,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "rama-calor",
+      "name": "Protocolo calor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nconst nivel = { critica: 'error', alta: 'warn', media: 'warn', baja: 'log' }[d.prioridad] || 'log';\n\nconsole[nivel](\n  `[${d.estado}] ${d.ciudad} | ${d.temperatura}°C | ${d.descripcion}` +\n  ` | Acciones: ${(d.acciones || []).join(', ')}` +\n  ` | Prioridad: ${d.prioridad}` +\n  ` | ${d.timestamp}`\n);\n\nreturn [{\n  json: {\n    estado:    d.estado,\n    ciudad:    d.ciudad,\n    temp:      d.temperatura,\n    prioridad: d.prioridad,\n    acciones:  d.acciones,\n    resumen:   d.resumen,\n    timestamp: d.timestamp\n  }\n}];"
+      },
+      "id": "log-final",
+      "name": "Log consolidado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const error = $json.error?.message || JSON.stringify($json.error) || 'Error desconocido al consultar la API del clima';\nconst timestamp = new Date().toISOString();\nconsole.error(`[ERROR CLIMA] ${timestamp} — ${error}`);\nreturn [{\n  json: {\n    estado:    'ERROR_API',\n    error,\n    timestamp,\n    mensaje:   'No se pudo obtener el clima. Revisando conectividad con Open-Meteo.'\n  }\n}];"
+      },
+      "id": "log-error-api",
+      "name": "Log error API",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 360]
+    }
+  ],
+  "connections": {
+    "Cada hora": {
+      "main": [[{ "node": "Obtener clima (Open-Meteo)", "type": "main", "index": 0 }]]
+    },
+    "Obtener clima (Open-Meteo)": {
+      "main": [
+        [{ "node": "Enriquecer datos del clima", "type": "main", "index": 0 }],
+        [{ "node": "Log error API",             "type": "main", "index": 0 }]
+      ]
+    },
+    "Enriquecer datos del clima": {
+      "main": [[{ "node": "Clasificar temperatura", "type": "main", "index": 0 }]]
+    },
+    "Clasificar temperatura": {
+      "main": [
+        [{ "node": "Protocolo frio",      "type": "main", "index": 0 }],
+        [{ "node": "Condiciones normales", "type": "main", "index": 0 }],
+        [{ "node": "Protocolo calor",     "type": "main", "index": 0 }]
+      ]
+    },
+    "Protocolo frio":       { "main": [[{ "node": "Log consolidado", "type": "main", "index": 0 }]] },
+    "Condiciones normales": { "main": [[{ "node": "Log consolidado", "type": "main", "index": 0 }]] },
+    "Protocolo calor":      { "main": [[{ "node": "Log consolidado", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

@@ -1,0 +1,121 @@
+{
+  "name": "IA + Noticias - Resumen diario con Claude",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-trigger",
+      "name": "Cada mañana a las 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://newsdata.io/api/1/news",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "apikey",   "value": "TU_NEWSDATA_API_KEY" },
+            { "name": "language", "value": "es" },
+            { "name": "country",  "value": "co,mx,es,ar" },
+            { "name": "category", "value": "technology,science" },
+            { "name": "size",     "value": "5" }
+          ]
+        },
+        "options": { "timeout": 10000 }
+      },
+      "id": "node-noticias",
+      "name": "Obtener noticias (NewsData.io)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const articulos = $json.results || [];\n\nif (!articulos.length) {\n  throw new Error('No se encontraron artículos en la respuesta de NewsData.io');\n}\n\nconst lista = articulos\n  .map((a, i) => {\n    const titulo      = a.title       || 'Sin título';\n    const descripcion = a.description || a.content || 'Sin descripción disponible';\n    const fuente      = a.source_id   || 'Desconocida';\n    const fecha       = a.pubDate     || 'Fecha no disponible';\n    return `${i + 1}. [${fuente}] ${titulo}\\n   Fecha: ${fecha}\\n   Descripcion: ${descripcion}`;\n  })\n  .join('\\n\\n');\n\nconsole.log(`Artículos listos: ${articulos.length}`);\n\nreturn [{\n  json: {\n    cantidad:        articulos.length,\n    texto_noticias:  lista,\n    fecha_ejecucion: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-preparar",
+      "name": "Preparar noticias para IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key",         "value": "TU_ANTHROPIC_API_KEY" },
+            { "name": "anthropic-version",  "value": "2023-06-01" },
+            { "name": "content-type",       "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Eres un asistente que resume noticias de forma clara y concisa en español.\\n\\nTienes las siguientes {{ $json.cantidad }} noticias del día de hoy:\\n\\n{{ $json.texto_noticias.replace(/\"/g, '\\\\\\\"') }}\\n\\nPor favor:\\n1. Haz un resumen breve de cada noticia en 2 o 3 oraciones.\\n2. Al final, escribe un párrafo titulado Tendencia del día explicando qué temas dominan las noticias de hoy y por qué importan.\\n\\nUsa un tono informativo, directo y accesible. Escribe en párrafos, sin listas.\"\n    }\n  ]\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "node-claude",
+      "name": "Claude API (HTTP Request)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [860, 300],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const respuesta = $json.content?.[0]?.text || 'Sin respuesta de Claude';\n\nconst prep       = $('Preparar noticias para IA').first().json;\nconst cantidad   = prep.cantidad;\nconst fechaEjec  = prep.fecha_ejecucion;\n\nconst fechaLegible = new Date().toLocaleDateString('es-CO', {\n  weekday: 'long',\n  year:    'numeric',\n  month:   'long',\n  day:     'numeric'\n});\n\nconsole.log('Resumen generado correctamente.');\nconsole.log(respuesta.slice(0, 200));\n\nreturn [{\n  json: {\n    titulo:          `Resumen de noticias — ${fechaLegible}`,\n    resumen:          respuesta,\n    noticias_usadas:  cantidad,\n    generado_por:    'Claude (Anthropic)',\n    fecha:            fechaEjec,\n    tokens_usados:    $json.usage?.output_tokens || null\n  }\n}];"
+      },
+      "id": "node-formatear",
+      "name": "Formatear resumen final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const origen = $json.error?.message ||\n               $json.message          ||\n               $json.error?.type      ||\n               'Error desconocido';\n\nconst ts = new Date().toISOString();\nconsole.error(`[ERROR NOTICIAS-IA] ${ts} — ${origen}`);\n\nreturn [{\n  json: {\n    estado:    'ERROR',\n    timestamp:  ts,\n    mensaje:    origen,\n    nota:      'Verificar API key de NewsData.io o Anthropic, y conexión a internet'\n  }\n}];"
+      },
+      "id": "node-error",
+      "name": "Log de error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 480]
+    }
+  ],
+  "connections": {
+    "Cada mañana a las 8h": {
+      "main": [[{ "node": "Obtener noticias (NewsData.io)", "type": "main", "index": 0 }]]
+    },
+    "Obtener noticias (NewsData.io)": {
+      "main": [
+        [{ "node": "Preparar noticias para IA", "type": "main", "index": 0 }],
+        [{ "node": "Log de error",              "type": "main", "index": 0 }]
+      ]
+    },
+    "Preparar noticias para IA": {
+      "main": [[{ "node": "Claude API (HTTP Request)", "type": "main", "index": 0 }]]
+    },
+    "Claude API (HTTP Request)": {
+      "main": [
+        [{ "node": "Formatear resumen final", "type": "main", "index": 0 }],
+        [{ "node": "Log de error",            "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

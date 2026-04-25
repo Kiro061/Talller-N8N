@@ -1,0 +1,158 @@
+{
+  "name": "Manejo de errores - flujo completo",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-trigger",
+      "name": "Inicio manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { intento: 1, maxIntentos: 2, esperaMs: 2000 } }];"
+      },
+      "id": "node-init",
+      "name": "Inicializar estado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 160]
+    },
+    {
+      "parameters": {
+        "url": "https://jsonplaceholder.typicode.com/posts/1",
+        "options": { "timeout": 5000 }
+      },
+      "id": "node-principal",
+      "name": "Endpoint principal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [640, 160],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconsole.log('Respuesta exitosa del endpoint principal:', JSON.stringify(data).slice(0, 120));\nreturn [{ json: { fuente: 'principal', status: 'ok', data, timestamp: new Date().toISOString() } }];"
+      },
+      "id": "node-exito",
+      "name": "Procesar respuesta OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 60]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev    = $('Inicializar estado').first().json;\nconst intento = (prev.intento || 1) + 1;\nconst max     = prev.maxIntentos || 2;\nconst espera  = prev.esperaMs   || 2000;\n\nconsole.warn(`Fallo en intento ${intento - 1}/${max}. Esperando ${espera} ms antes de reintentar...`);\n\nif (intento > max) {\n  console.error('Reintentos agotados. Activando fallback.');\n  return [{ json: { intento, max, agotado: true, timestamp: new Date().toISOString() } }];\n}\n\nawait new Promise(r => setTimeout(r, espera));\nreturn [{ json: { intento, max, agotado: false, esperaMs: espera * 2 } }];"
+      },
+      "id": "node-retry",
+      "name": "Evaluar reintento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 280]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-agotado",
+              "leftValue": "={{ $json.agotado }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "false" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-retry",
+      "name": "¿Quedan reintentos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1040, 280]
+    },
+    {
+      "parameters": {
+        "url": "https://jsonplaceholder.typicode.com/posts/1",
+        "options": { "timeout": 5000 }
+      },
+      "id": "node-reintento-http",
+      "name": "Reintentar peticion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1040, 160],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://jsonplaceholder.typicode.com/posts/2",
+        "options": { "timeout": 5000 }
+      },
+      "id": "node-fallback",
+      "name": "Endpoint fallback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1240, 360],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconsole.log('Respuesta del fallback:', JSON.stringify(data).slice(0, 120));\nreturn [{ json: { fuente: 'fallback', status: 'ok_fallback', data, timestamp: new Date().toISOString() } }];"
+      },
+      "id": "node-fallback-ok",
+      "name": "Procesar fallback OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ts  = new Date().toISOString();\nconst msg = 'ALERTA CRITICA: todos los endpoints fallaron. Se requiere intervencion manual.';\nconsole.error(`[${ts}] ${msg}`);\nreturn [{\n  json: {\n    nivel:     'CRITICO',\n    timestamp: ts,\n    mensaje:   msg,\n    endpoints_fallidos: ['principal', 'reintento x2', 'fallback'],\n    accion:    'Revisar conectividad y disponibilidad del servicio'\n  }\n}];"
+      },
+      "id": "node-alerta",
+      "name": "Alerta critica",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 360]
+    }
+  ],
+  "connections": {
+    "Inicio manual": {
+      "main": [[{ "node": "Inicializar estado", "type": "main", "index": 0 }]]
+    },
+    "Inicializar estado": {
+      "main": [[{ "node": "Endpoint principal", "type": "main", "index": 0 }]]
+    },
+    "Endpoint principal": {
+      "main": [
+        [{ "node": "Procesar respuesta OK", "type": "main", "index": 0 }],
+        [{ "node": "Evaluar reintento",     "type": "main", "index": 0 }]
+      ]
+    },
+    "Evaluar reintento": {
+      "main": [[{ "node": "¿Quedan reintentos?", "type": "main", "index": 0 }]]
+    },
+    "¿Quedan reintentos?": {
+      "main": [
+        [{ "node": "Reintentar peticion", "type": "main", "index": 0 }],
+        [{ "node": "Endpoint fallback",   "type": "main", "index": 0 }]
+      ]
+    },
+    "Reintentar peticion": {
+      "main": [
+        [{ "node": "Procesar respuesta OK", "type": "main", "index": 0 }],
+        [{ "node": "Evaluar reintento",     "type": "main", "index": 0 }]
+      ]
+    },
+    "Endpoint fallback": {
+      "main": [
+        [{ "node": "Procesar fallback OK", "type": "main", "index": 0 }],
+        [{ "node": "Alerta critica",       "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
